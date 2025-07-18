@@ -1,44 +1,41 @@
 import re
 import datetime as dt
 from dateutil import parser
+import logging
 
 def parse_file_date(name: str) -> dt.datetime | None:
     """
-    Bardziej elastyczna funkcja do parsowania daty z nazwy pliku.
-    Obsługuje formaty takie jak:
-    - YYYY-MM-DD_HH-MM-SS.json
-    - YYYY-MM-DD_HH-MM.json
-    - YYYY-MM-DD HH_MM.json
-    - I inne wariacje, które `dateutil.parser` może zrozumieć.
+    Bardzo elastyczna funkcja do parsowania daty z nazwy pliku, odporna na różne separatory.
+    Wykorzystuje wyrażenia regularne do znalezienia wszystkich liczb w nazwie pliku.
     """
-    stem = name.rsplit('.', 1)[0] # Usuń rozszerzenie .json
+    stem = name.rsplit('.', 1)[0]
     
-    # Zastąp znaki, aby ułatwić parsowanie
-    normalized_stem = stem.replace("_", ":")
+    # Znajdź wszystkie sekwencje cyfr w nazwie pliku
+    numbers = re.findall(r'\d+', stem)
     
+    # Oczekujemy od 3 do 6 grup liczb (rok, miesiąc, dzień, opcjonalnie godzina, minuta, sekunda)
+    if not (3 <= len(numbers) <= 6):
+        logging.warning(f"Znaleziono nieoczekiwaną liczbę komponentów daty w '{name}'. Pomijam plik.")
+        return None
+        
     try:
-        # Użyj dateutil.parser, który jest bardzo elastyczny
-        return parser.parse(normalized_stem)
-    except (parser.ParserError, ValueError):
-        # Jeśli powyższe zawiedzie, spróbuj ręcznego parsowania dla specyficznych formatów
-        # np. YYYY-MM-DD HH_MM
-        try:
-             # Usuwa myslnik i podkreslnik
-            return dt.datetime.strptime(stem, "%Y-%m-%d %H_%M")
-        except ValueError:
-            pass
-        try:
-            # Usuwa podkreslnik i myslnik
-            return dt.datetime.strptime(stem, "%Y-%m-%d_%H-%M")
-        except ValueError:
-            pass
-
-        # Jeśli wszystko inne zawiedzie, zaloguj błąd i zwróć None
-        # logging.warning(f"Nie udało się sparsować daty z nazwy pliku: {name}")
+        # Uzupełnij brakujące części (godzina, minuta, sekunda) zerami, jeśli ich nie ma
+        while len(numbers) < 6:
+            numbers.append('0')
+            
+        # Przekształć znalezione stringi na liczby całkowite
+        parts = [int(n) for n in numbers]
+        
+        # Stwórz obiekt datetime
+        return dt.datetime(year=parts[0], month=parts[1], day=parts[2], 
+                           hour=parts[3], minute=parts[4], second=parts[5])
+                           
+    except (ValueError, IndexError) as e:
+        logging.error(f"Nie udało się złożyć daty z komponentów {numbers} dla pliku '{name}'. Błąd: {e}")
         return None
 
 
-def pretty_usd(n: float) -> str:
+def pretty_usd(n: float | int) -> str:
     """Formatuje liczbę jako walutę USD w skróconej formie (np. $1.23M, $45K)."""
     if not isinstance(n, (int, float)):
         return "$0"
@@ -50,7 +47,13 @@ def pretty_usd(n: float) -> str:
         return f"{sign}${n/1_000_000_000:.2f}B"
     if n >= 1_000_000:
         return f"{sign}${n/1_000_000:.2f}M"
-    if n >= 1_000:
-        return f"{sign}${n/1_000:.1f}K"
+    if n >= 1000:
+        return f"{sign}${n/1000:.1f}K"
     return f"{sign}${n:.2f}"
 
+def format_percentage(n: float | int) -> str:
+    """Formatuje liczbę jako procent ze znakiem."""
+    if not isinstance(n, (int, float)):
+        return "0.0%"
+    sign = "+" if n > 0 else ""
+    return f"{sign}{n:.2f}%"

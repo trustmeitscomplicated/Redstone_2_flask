@@ -1,135 +1,200 @@
 <!DOCTYPE html>
-<html lang="pl" class="">
+<html lang="pl" class="scroll-smooth">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeFiLlama TVL Report</title>
-  
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DeFi TVL Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
-  <style>
-    body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-    .font-mono { font-family: 'Space Mono', monospace; }
-    .dark ::-webkit-scrollbar { width: 8px; }
-    .dark ::-webkit-scrollbar-track { background: #1f2937; }
-    .dark ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
-    .dark ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
-    select {
-      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-      background-position: right 0.5rem center;
-      background-repeat: no-repeat;
-      background-size: 1.5em 1.5em;
-      padding-right: 2.5rem;
-      -webkit-appearance: none;
-      -moz-appearance: none;
-      appearance: none;
-    }
-  </style>
+    <style>
+        /* --- General & Light Theme --- */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            -webkit-font-smoothing: antialiased; 
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #f8fafc; /* Lepszy, jaśniejszy biały */
+            background-image: radial-gradient(#e2e8f0 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        .font-mono { font-family: 'Space Mono', monospace; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        /* --- Dark Theme --- */
+        .dark body {
+            background-color: #0b1120;
+            background-image: radial-gradient(#1e293b 1px, transparent 0);
+        }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .dark .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* --- Animations & UI Elements --- */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        
+        .tab-active { border-color: #10b981; color: #10b981; }
+        .sortable:hover { background-color: rgba(0,0,0,0.03); }
+        .dark .sortable:hover { background-color: rgba(255,255,255,0.04); }
+        .sort-asc::after { content: ' ▲'; }
+        .sort-desc::after { content: ' ▼'; }
+    </style>
 </head>
 
-<body class="min-h-screen bg-gray-100 text-gray-800 selection:bg-emerald-500/20 dark:bg-gray-900 dark:text-gray-200 transition-colors duration-300">
-  
-  <div class="container mx-auto px-4 py-8 md:px-6 lg:px-8">
-    
-    <!-- Header -->
-    <header class="mb-6">
-      <div class="flex flex-col md:flex-row justify-between md:items-center gap-4">
-        <div>
-          <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Raport TVL protokołów DeFi</h1>
-          <p id="reportDates" class="text-sm text-gray-500 dark:text-gray-400 mt-1">Wybierz daty do porównania lub zobacz ostatni raport tygodniowy.</p>
-        </div>
-        <div class="flex items-center gap-2">
-           <button id="themeBtn" class="p-2 rounded-lg bg-white dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 shadow-sm" title="Zmień motyw">
-            <svg id="sunIcon" class="hidden h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.909-2.636l1.591-1.591M5.25 12H3m4.227-4.227l-1.591 1.591" /></svg>
-            <svg id="moonIcon" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
-          </button>
-        </div>
-      </div>
-      
-      <!-- Kontrolki wyboru daty -->
-      <div class="mt-6 p-4 bg-white dark:bg-gray-800/50 rounded-2xl shadow-sm flex flex-col sm:flex-row items-center gap-4">
-        <div class="w-full">
-          <label for="startDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Data początkowa</label>
-          <select id="startDate" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm rounded-md"></select>
-        </div>
-        <div class="w-full">
-          <label for="endDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Data końcowa</label>
-          <select id="endDate" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm rounded-md"></select>
-        </div>
-        <button id="compareBtn" class="w-full sm:w-auto mt-2 sm:mt-5 px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 dark:ring-offset-gray-800">
-          Porównaj
-        </button>
-      </div>
-    </header>
+<body class="min-h-screen text-gray-800 dark:text-gray-200 transition-colors duration-300">
+    <div id="app-container" class="container mx-auto px-4 py-6 md:px-6 lg:px-8">
+        <!-- Nagłówek -->
+        <header class="mb-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="flex-shrink-0 bg-white/60 dark:bg-gray-800/50 p-3 rounded-xl shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7 text-emerald-500"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">DeFi TVL Dashboard</h1>
+                        <p id="reportDates" class="text-sm text-gray-500 dark:text-gray-400 mt-1">Analiza zmian Total Value Locked</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 self-end md:self-center">
+                    <button id="syncBtn" class="p-2 rounded-lg bg-white/60 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-700 transition-all duration-200 shadow-sm border dark:border-gray-200 dark:border-gray-700" title="Synchronizuj najnowsze dane">
+                        <svg id="syncIcon" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.664 0M2.985 19.644A8.25 8.25 0 0114.65 8.356m0 0V3.364m0 5.008L17.79 11.6" /></svg>
+                    </button>
+                    <button id="themeBtn" class="p-2 rounded-lg bg-white/60 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-700 transition-all duration-200 shadow-sm border dark:border-gray-200 dark:border-gray-700" title="Zmień motyw">
+                        <svg id="sunIcon" class="hidden h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.909-2.636l1.591-1.591M5.25 12H3m4.227-4.227l-1.591 1.591" /></svg>
+                        <svg id="moonIcon" class="hidden h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
 
-    <!-- Main Content -->
-    <main id="reportContainer">
         <!-- Skeleton Loader -->
-        <div id="loader" class="space-y-6">
-            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div class="bg-white dark:bg-gray-800/50 p-6 rounded-2xl shadow-sm animate-pulse space-y-4">
-                    <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
-                    <div class="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    <div class="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    <div class="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </div>
-                <div class="bg-white dark:bg-gray-800/50 p-6 rounded-2xl shadow-sm animate-pulse space-y-4">
-                    <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
-                    <div class="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    <div class="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </div>
-                <div class="bg-white dark:bg-gray-800/50 p-6 rounded-2xl shadow-sm animate-pulse space-y-4">
-                    <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
-                    <div class="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </div>
+        <div id="loader">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 animate-pulse">
+                <div class="h-24 bg-gray-300/50 dark:bg-gray-800/50 rounded-2xl"></div>
+                <div class="h-24 bg-gray-300/50 dark:bg-gray-800/50 rounded-2xl"></div>
+                <div class="h-24 bg-gray-300/50 dark:bg-gray-800/50 rounded-2xl"></div>
             </div>
+            <div class="bg-gray-300/50 dark:bg-gray-800/50 p-4 rounded-2xl animate-pulse h-64"></div>
         </div>
 
-        <!-- Report Content (to be filled by JS) -->
-        <div id="reportContent" class="hidden">
-            <!-- Error Message -->
-            <div id="errorMessage" class="hidden bg-red-100 dark:bg-red-900/30 border-l-4 border-red-500 text-red-700 dark:text-red-300 p-4 rounded-lg mb-6" role="alert">
-                <p class="font-bold">Wystąpił błąd</p>
-                <p id="errorText"></p>
+        <!-- Główna zawartość aplikacji -->
+        <main id="app-content" class="hidden">
+            <!-- Statystyki KPI -->
+            <section id="stats-kpi" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"></section>
+
+            <!-- Panel Kontrolny -->
+            <section id="control-panel" class="mb-6 p-4 glass-panel rounded-2xl shadow-lg">
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
+                    <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="startDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Data początkowa</label>
+                            <select id="startDate" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300/50 dark:border-gray-600/50 bg-white/50 dark:bg-gray-700/50 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm rounded-md"></select>
+                        </div>
+                        <div>
+                            <label for="endDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Data końcowa</label>
+                            <select id="endDate" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300/50 dark:border-gray-600/50 bg-white/50 dark:bg-gray-700/50 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm rounded-md"></select>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label for="min-tvl" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Min TVL ($)</label>
+                            <input type="number" id="min-tvl" value="100000" class="mt-1 block w-full p-2 border-gray-300/50 dark:border-gray-600/50 bg-white/50 dark:bg-gray-700/50 rounded-md" placeholder="np. 100000">
+                        </div>
+                        <div>
+                            <label for="max-tvl" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Max TVL ($)</label>
+                            <input type="number" id="max-tvl" class="mt-1 block w-full p-2 border-gray-300/50 dark:border-gray-600/50 bg-white/50 dark:bg-gray-700/50 rounded-md" placeholder="bez limitu">
+                        </div>
+                        <div>
+                            <label for="top-n" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Pokaż Top</label>
+                            <select id="top-n" class="mt-1 block w-full p-2 border-gray-300/50 dark:border-gray-600/50 bg-white/50 dark:bg-gray-700/50 rounded-md">
+                                <option value="10">10</option>
+                                <option value="25" selected>25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="">Wszystkie</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-1">
+                        <button id="compareBtn" class="w-full px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 dark:ring-offset-gray-900 transition-transform hover:scale-105">
+                            Generuj Raport
+                        </button>
+                    </div>
+                </div>
+            </section>
+            
+            <div class="border-b border-gray-200 dark:border-gray-700 mb-4">
+                <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+                    <button data-tab="report" class="tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600 tab-active">Główne Zmiany</button>
+                    <button data-tab="all" class="tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600">Wszystkie Protokoły</button>
+                    <button data-tab="settings" class="tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600">Filtry Kategorii</button>
+                </nav>
             </div>
 
-            <!-- Main report grid -->
-            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Increases by % -->
-                <div id="increases-pct-section" class="bg-white dark:bg-gray-800/50 p-4 sm:p-6 rounded-2xl shadow-sm space-y-4">
-                    <h2 class="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-sky-500"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 7.5l.415-.207a.75.75 0 011.085.67V10.5m0 0h6m-6 0a.75.75 0 00.75.75h4.5a.75.75 0 00.75-.75v-4.5a.75.75 0 00-.75-.75h-4.5a.75.75 0 00-.75.75v4.5z" /><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21.75h16.5a1.5 1.5 0 001.5-1.5v-16.5a1.5 1.5 0 00-1.5-1.5H3.75a1.5 1.5 0 00-1.5 1.5v16.5a1.5 1.5 0 001.5 1.5z" /></svg>
-                        Wzrosty (%)
-                    </h2>
-                    <div id="increases-pct-list" class="space-y-3"></div>
+            <div id="tab-content">
+                <div id="tab-panel-report" class="tab-panel space-y-6">
+                    <div class="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <div class="fade-in bg-white dark:bg-gray-800/50 p-4 sm:p-6 rounded-2xl shadow-lg space-y-4"><h2 class="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-sky-500"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>Wzrosty (%)</h2><div id="increases-pct-list" class="space-y-3"></div></div>
+                        <div class="fade-in bg-white dark:bg-gray-800/50 p-4 sm:p-6 rounded-2xl shadow-lg space-y-4"><h2 class="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-emerald-500"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 11.21 12.768 11 12 11c-.768 0-1.536.21-2.121.659L9 12.282z" /></svg>Wzrosty ($)</h2><div id="increases-abs-list" class="space-y-3"></div></div>
+                        <div class="fade-in bg-white dark:bg-gray-800/50 p-4 sm:p-6 rounded-2xl shadow-lg space-y-4"><h2 class="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-amber-500"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>Nowe Protokoły</h2><div id="new-protocols-list" class="space-y-3"></div></div>
+                        <div class="fade-in bg-white dark:bg-gray-800/50 p-4 sm:p-6 rounded-2xl shadow-lg space-y-4"><h2 class="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-red-500"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>Usunięte Protokoły</h2><div id="removed-protocols-list" class="space-y-3"></div></div>
+                    </div>
                 </div>
 
-                <!-- Increases by $ -->
-                <div id="increases-abs-section" class="bg-white dark:bg-gray-800/50 p-4 sm:p-6 rounded-2xl shadow-sm space-y-4">
-                    <h2 class="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-emerald-500"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.75A.75.75 0 013 4.5h.75m0 0H21m-9 12h5.25m-5.25 0h-7.5" /></svg>
-                        Wzrosty (kwota)
-                    </h2>
-                    <div id="increases-abs-list" class="space-y-3"></div>
+                <div id="tab-panel-all" class="tab-panel hidden">
+                    <div class="bg-white dark:bg-gray-800/50 p-4 sm:p-6 rounded-2xl shadow-lg">
+                        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+                            <h2 class="text-lg font-bold">Wszystkie Protokoły</h2>
+                            <input id="searchInput" type="text" placeholder="Szukaj po nazwie..." class="w-full md:w-1/3 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700">
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-800">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider sortable cursor-pointer" data-sort="name">Protokół</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider sortable cursor-pointer" data-sort="category">Kategoria</th>
+                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider sortable cursor-pointer" data-sort="tvl">TVL</th>
+                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider sortable cursor-pointer" data-sort="diff">Zmiana</th>
+                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider sortable cursor-pointer" data-sort="pct">Zmiana (%)</th>
+                                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Linki</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="all-protocols-table-body" class="bg-white dark:bg-gray-800/80 divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+                            </table>
+                        </div>
+                        <nav id="pagination-controls" class="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 px-4 py-3 sm:px-6 mt-4" aria-label="Pagination"></nav>
+                    </div>
                 </div>
                 
-                <!-- New Protocols -->
-                <div id="new-protocols-section" class="bg-white dark:bg-gray-800/50 p-4 sm:p-6 rounded-2xl shadow-sm space-y-4">
-                    <h2 class="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-amber-500"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.572L16.5 21.75l-.398-1.178a3.375 3.375 0 00-2.455-2.456L12.75 18l1.178-.398a3.375 3.375 0 002.455-2.456L16.5 14.25l.398 1.178a3.375 3.375 0 002.456 2.456L20.25 18l-1.178.398a3.375 3.375 0 00-2.456 2.456z" /></svg>
-                        Nowe protokoły
-                    </h2>
-                    <div id="new-protocols-list" class="space-y-3"></div>
+                <div id="tab-panel-settings" class="tab-panel hidden">
+                    <div class="bg-white dark:bg-gray-800/50 p-4 sm:p-6 rounded-2xl shadow-lg">
+                        <h2 class="text-lg font-bold mb-4">Filtrowanie Kategorii</h2>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Wybierz kategorie, które chcesz uwzględnić w analizie. Zmiany zostaną zapisane automatycznie i zastosowane przy następnym generowaniu raportu.</p>
+                        <div id="category-filters" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </main>
+        </main>
+    </div>
 
-  </div>
-  
-  <script src="/static/js/dashboard.js"></script>
+    <div id="toast" class="fixed bottom-5 right-5 flex items-center w-full max-w-xs p-4 space-x-4 text-gray-500 bg-white/70 backdrop-blur-sm divide-x divide-gray-200 rounded-lg shadow-lg dark:text-gray-400 dark:divide-gray-700 dark:bg-gray-800/70 transform translate-y-20 opacity-0 transition-all duration-300" role="alert"></div>
+    
+    <script src="/static/js/dashboard.js"></script>
 </body>
 </html>
