@@ -1,21 +1,41 @@
+// ==============================================================================
+// dashboard.js - Frontend Application Logic
+// ==============================================================================
+// This file contains all the JavaScript code that runs in the user's browser.
+// It's responsible for:
+// 1. Fetching data from our Python backend API.
+// 2. Dynamically building and updating the HTML to display the data.
+// 3. Handling all user interactions like button clicks, form inputs, and sorting.
+// 4. Managing the application's state (e.g., current filters, sort order).
+// ==============================================================================
+
+// This event listener ensures that our code only runs after the entire HTML
+// page has been loaded and is ready.
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Konfiguracja ---
-    const ITEMS_PER_PAGE = 25;
+    
+    // --- 1. Configuration ---
+    // These are constant values that control some application behaviors.
+    const ITEMS_PER_PAGE = 25; // Number of items to show in the "All Protocols" table per page.
     const DEFAULT_CATEGORIES = ['lending', 'dexes', 'bridge', 'liquid staking', 'cdp', 'yield', 'services', 'yield aggregator', 'derivatives', 'rwa'];
 
-    // --- Stan Aplikacji ---
+    // --- 2. Application State ---
+    // This object holds all the data that can change during the user's session.
+    // It's a single source of truth for our application's data.
     const State = {
-        snapshots: [],
-        reportData: null,
-        allProtocols: [],
-        filteredProtocols: [],
-        categories: new Set(),
+        snapshots: [], // List of available data files (snapshots).
+        reportData: null, // The main report data received from the API.
+        allProtocols: [], // A complete list of all protocols from the current report.
+        filteredProtocols: [], // A filtered/sorted version of the list above.
+        categories: new Set(), // A unique set of all available protocol categories.
+        // A set of currently active category filters, loaded from browser's localStorage.
         activeFilters: new Set(JSON.parse(localStorage.getItem('defillama_filters')) || DEFAULT_CATEGORIES),
-        currentPage: 1,
-        sort: { key: 'tvl', order: 'desc' }
+        currentPage: 1, // The current page number for the "All Protocols" table.
+        sort: { key: 'tvl', order: 'desc' } // The current sorting criteria for the table.
     };
 
-    // --- Elementy DOM ---
+    // --- 3. DOM Element References ---
+    // We get references to all important HTML elements once and store them here for easy access.
+    // The `$` functions are simple shortcuts for `document.querySelector`.
     const $ = (selector) => document.querySelector(selector);
     const $$ = (selector) => document.querySelectorAll(selector);
 
@@ -48,13 +68,14 @@ document.addEventListener('DOMContentLoaded', () => {
         syncIcon: $('#syncIcon'),
     };
 
-    // --- Moduł API ---
+    // --- 4. API Module ---
+    // This object centralizes all communication with our Python backend.
     const API = {
         async get(url) {
             try {
                 const response = await fetch(url);
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({ error: `Błąd serwera: ${response.status}` }));
+                    const errorData = await response.json().catch(() => ({ error: `Server Error: ${response.status}` }));
                     throw new Error(errorData.error);
                 }
                 return response.json();
@@ -68,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 UI.setSyncing(true);
                 const response = await fetch(url, { method: 'POST' });
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({ message: `Błąd serwera: ${response.status}` }));
+                    const errorData = await response.json().catch(() => ({ message: `Server Error: ${response.status}` }));
                     throw new Error(errorData.message);
                 }
                 const data = await response.json();
@@ -83,11 +104,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Moduł UI ---
+    // --- 5. UI Module ---
+    // This object contains all functions that manipulate the HTML page (the DOM).
     const UI = {
         initTheme() {
             const storedTheme = localStorage.getItem('theme');
-            // Domyślnie ustaw motyw ciemny, jeśli nic nie ma w localStorage
+            // Default to dark theme if no preference is stored.
             const theme = storedTheme || 'dark';
             this.applyTheme(theme);
 
@@ -98,11 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         },
         applyTheme(theme) {
-            if (theme === 'dark') {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
+            // Add or remove the 'dark' class on the main <html> element.
+            document.documentElement.classList.toggle('dark', theme === 'dark');
+            // Show the correct icon (sun or moon).
             Elements.sunIcon.classList.toggle('hidden', theme === 'dark');
             Elements.moonIcon.classList.toggle('hidden', theme !== 'dark');
         },
@@ -128,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSnapshotsSelect(snapshots) {
             if (!snapshots || snapshots.length === 0) return;
             [Elements.startDateSelect, Elements.endDateSelect].forEach(select => {
-                select.innerHTML = snapshots.map(s => `<option value="${s.filename}">${new Date(s.date).toLocaleString('pl-PL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</option>`).join('');
+                select.innerHTML = snapshots.map(s => `<option value="${s.filename}">${new Date(s.date).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</option>`).join('');
             });
             Elements.endDateSelect.selectedIndex = 0;
             Elements.startDateSelect.selectedIndex = Math.min(7, snapshots.length - 1);
@@ -138,14 +158,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const formatPercent = (n) => `${n > 0 ? '+' : ''}${n.toFixed(2)}%`;
             const changeColor = stats.change24h >= 0 ? 'text-emerald-500' : 'text-red-500';
             Elements.statsKpi.innerHTML = `
-                <div class="fade-in glass-panel p-4 rounded-2xl shadow-lg"><p class="text-sm text-gray-500 dark:text-gray-400">Całkowite TVL</p><p class="text-2xl font-bold">${formatUsd(stats.totalTVL)}</p></div>
-                <div class="fade-in glass-panel p-4 rounded-2xl shadow-lg"><p class="text-sm text-gray-500 dark:text-gray-400">Zmiana (24h)</p><p class="text-2xl font-bold ${changeColor}">${formatPercent(stats.change24h)}</p></div>
-                <div class="fade-in glass-panel p-4 rounded-2xl shadow-lg"><p class="text-sm text-gray-500 dark:text-gray-400">Śledzone Protokoły</p><p class="text-2xl font-bold">${stats.protocolCount.toLocaleString('pl-PL')}</p></div>
+                <div class="fade-in glass-panel p-4 rounded-2xl shadow-lg"><p class="text-sm text-gray-500 dark:text-gray-400">Total TVL</p><p class="text-2xl font-bold">${formatUsd(stats.totalTVL)}</p></div>
+                <div class="fade-in glass-panel p-4 rounded-2xl shadow-lg"><p class="text-sm text-gray-500 dark:text-gray-400">24h Change</p><p class="text-2xl font-bold ${changeColor}">${formatPercent(stats.change24h)}</p></div>
+                <div class="fade-in glass-panel p-4 rounded-2xl shadow-lg"><p class="text-sm text-gray-500 dark:text-gray-400">Tracked Protocols</p><p class="text-2xl font-bold">${stats.protocolCount.toLocaleString('en-US')}</p></div>
             `;
         },
         renderReport(data) {
             const { reportMetadata, topIncreasesPct, topIncreasesAbs, newProtocols, removedProtocols } = data;
-            Elements.reportDates.textContent = `Porównanie od ${new Date(reportMetadata.comparisonDate).toLocaleDateString('pl-PL')} do ${new Date(reportMetadata.reportDate).toLocaleDateString('pl-PL')}`;
+            Elements.reportDates.textContent = `Comparing from ${new Date(reportMetadata.comparisonDate).toLocaleDateString('en-GB')} to ${new Date(reportMetadata.reportDate).toLocaleDateString('en-GB')}`;
             
             const createItem = (item, type) => {
                 const formatUsd = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', notation: 'compact', signDisplay: 'always' });
@@ -167,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             
             const renderList = (element, list, type) => {
-                element.innerHTML = list.length > 0 ? list.map(item => createItem(item, type)).join('') : `<p class="text-center text-sm text-gray-500 p-4">Brak danych dla wybranych kryteriów.</p>`;
+                element.innerHTML = list.length > 0 ? list.map(item => createItem(item, type)).join('') : `<p class="text-center text-sm text-gray-500 p-4">No data for selected criteria.</p>`;
             };
 
             renderList(Elements.increasesPctList, topIncreasesPct, 'pct');
@@ -194,10 +214,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="px-6 py-4 whitespace-nowrap text-right font-mono text-sm ${p.pct > 0 ? 'text-emerald-500' : 'text-red-500'}">${formatPercent(p.pct)}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-center">
                         <div class="flex items-center justify-center gap-3">
-                            <a href="${p.url}" target="_blank" rel="noopener noreferrer" title="Strona oficjalna" class="text-gray-400 hover:text-emerald-500 transition-colors">
+                            <a href="${p.url}" target="_blank" rel="noopener noreferrer" title="Official Website" class="text-gray-400 hover:text-emerald-500 transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                             </a>
-                            <a href="https://defillama.com/protocol/${p.slug}" target="_blank" rel="noopener noreferrer" title="Strona na DeFiLlama" class="text-gray-400 hover:text-emerald-500 transition-colors">
+                            <a href="https://defillama.com/protocol/${p.slug}" target="_blank" rel="noopener noreferrer" title="View on DeFiLlama" class="text-gray-400 hover:text-emerald-500 transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" /><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" /></svg>
                             </a>
                         </div>
@@ -212,11 +232,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const { currentPage } = State;
             let html = `<div class="flex-1 flex justify-between sm:hidden">
-                <button ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}" class="page-btn relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50">Poprzednia</button>
-                <button ${currentPage === totalPages ? 'disabled' : ''} data-page="${currentPage + 1}" class="page-btn relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50">Następna</button>
+                <button ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}" class="page-btn relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50">Previous</button>
+                <button ${currentPage === totalPages ? 'disabled' : ''} data-page="${currentPage + 1}" class="page-btn relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50">Next</button>
             </div>
             <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div><p class="text-sm text-gray-700 dark:text-gray-400">Pokazano <span class="font-medium">${(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> do <span class="font-medium">${Math.min(currentPage * ITEMS_PER_PAGE, State.filteredProtocols.length)}</span> z <span class="font-medium">${State.filteredProtocols.length}</span> wyników</p></div>
+                <div><p class="text-sm text-gray-700 dark:text-gray-400">Showing <span class="font-medium">${(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span class="font-medium">${Math.min(currentPage * ITEMS_PER_PAGE, State.filteredProtocols.length)}</span> of <span class="font-medium">${State.filteredProtocols.length}</span> results</p></div>
                 <div><nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">`;
             
             const pages = Array.from({length: totalPages}, (_, i) => i + 1);
@@ -251,7 +271,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Logika Aplikacji ---
+    // --- 6. Main Application Logic ---
+    // This object orchestrates the entire application flow.
     const App = {
         async init() {
             UI.initTheme();
@@ -267,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     await this.loadStats();
                     await this.loadReport();
                 } else {
-                    UI.showToast("Brak danych. Kliknij 'Synchronizuj', aby pobrać.", 'error');
+                    UI.showToast("No data found. Click 'Sync' to download.", 'error');
                 }
             } catch (e) {
                 console.error("Initialization failed", e);
@@ -315,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         async loadReport() {
             Elements.compareBtn.disabled = true;
-            Elements.compareBtn.textContent = 'Generowanie...';
+            Elements.compareBtn.textContent = 'Generating...';
             try {
                 const params = new URLSearchParams({
                     start_file: Elements.startDateSelect.value,
@@ -342,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 UI.renderCategoryFilters();
             } finally {
                 Elements.compareBtn.disabled = false;
-                Elements.compareBtn.textContent = 'Generuj Raport';
+                Elements.compareBtn.textContent = 'Generate Report';
             }
         },
         switchTab(tabId) {
@@ -390,5 +411,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // Start the application!
     App.init();
 });
